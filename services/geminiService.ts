@@ -3,13 +3,21 @@ import { GoogleGenAI } from "@google/genai";
 import { MODEL_NAME } from "../constants";
 import { AIResponse, AspectRatio } from "../types";
 
+const getApiKey = () => {
+  const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("API key is missing. Please set GEMINI_API_KEY in your environment variables.");
+  }
+  return key;
+};
+
 export const editWithAI = async (
   base64Image: string,
   prompt: string,
   aspectRatio: AspectRatio = "1:1"
 ): Promise<AIResponse> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     
     // Clean base64 string
     const base64Data = base64Image.split(',')[1];
@@ -67,7 +75,7 @@ export const generateImage = async (
   aspectRatio: AspectRatio = "1:1"
 ): Promise<AIResponse> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
@@ -115,7 +123,7 @@ export const chatWithAI = async (
   history: { role: "user" | "model"; parts: { text: string }[] }[] = []
 ): Promise<{ text: string; error?: string }> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const chat = ai.chats.create({
       model: "gemini-3-flash-preview",
       config: {
