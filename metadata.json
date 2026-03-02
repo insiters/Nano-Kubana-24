@@ -1,0 +1,7 @@
+{
+  "name": "Nano-Kubana-24",
+  "description": "Мощное приложение для редактирования фотографий с использованием ИИ-трансформаций Gemini 2.5 Flash Image и профессиональных ручных фильтров.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
