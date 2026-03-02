@@ -13,10 +13,12 @@ import {
   Eye,
   EyeOff,
   Wand2,
-  Maximize2
+  Maximize2,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { HistoryState, AspectRatio } from './types';
-import { editWithAI, generateImage } from './services/geminiService';
+import { editWithAI, generateImage, chatWithAI } from './services/geminiService';
 
 const App: React.FC = () => {
   const [image, setImage] = useState<string | null>(null);
@@ -25,9 +27,11 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [createPrompt, setCreatePrompt] = useState('');
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<{ role: "user" | "model"; parts: { text: string }[] }[]>([]);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [showOriginal, setShowOriginal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'ai' | 'create'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'create' | 'chat'>('ai');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,6 +124,24 @@ const App: React.FC = () => {
     setIsProcessing(false);
   };
 
+  const handleChatSend = async () => {
+    if (!chatMessage) return;
+    
+    const userMessage = { role: "user" as const, parts: [{ text: chatMessage }] };
+    setChatHistory(prev => [...prev, userMessage]);
+    setChatMessage('');
+    setIsProcessing(true);
+
+    const result = await chatWithAI(chatMessage, chatHistory);
+    
+    if (result.text) {
+      setChatHistory(prev => [...prev, { role: "model" as const, parts: [{ text: result.text }] }]);
+    } else {
+      alert(result.error || "Не удалось получить ответ от ИИ.");
+    }
+    setIsProcessing(false);
+  };
+
   const downloadImage = () => {
     if (!canvasRef.current) return;
     const link = document.createElement('a');
@@ -189,10 +211,16 @@ const App: React.FC = () => {
             >
               <Sparkles className="w-4 h-4" /> ИИ Создание
             </button>
+            <button 
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors border-b-2 flex items-center justify-center gap-2 ${activeTab === 'chat' ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+            >
+              <MessageSquare className="w-4 h-4" /> ИИ Чат
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {(!image && activeTab !== 'create') ? (
+            {(!image && activeTab !== 'create' && activeTab !== 'chat') ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <ImageIcon className="w-12 h-12 text-slate-700 mb-4" />
                 <p className="text-slate-500 text-sm">Загрузите изображение или перейдите в "ИИ Создание"</p>
@@ -278,7 +306,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'create' ? (
               <div className="space-y-4">
                 <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/20">
                   <h3 className="text-indigo-400 text-sm font-semibold mb-2 flex items-center gap-2">
@@ -357,6 +385,68 @@ const App: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col h-full space-y-4">
+                <div className="bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/20 shrink-0">
+                  <h3 className="text-indigo-400 text-sm font-semibold mb-1 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" /> ИИ Ассистент
+                  </h3>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Задайте вопрос о редактировании или попросите совета.
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-800">
+                  {chatHistory.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                      <MessageSquare className="w-8 h-8 mb-2" />
+                      <p className="text-xs">Начните диалог...</p>
+                    </div>
+                  )}
+                  {chatHistory.map((msg, idx) => (
+                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-3 rounded-2xl text-xs ${
+                        msg.role === 'user' 
+                          ? 'bg-indigo-600 text-white rounded-tr-none' 
+                          : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'
+                      }`}>
+                        {msg.parts[0].text}
+                      </div>
+                    </div>
+                  ))}
+                  {isProcessing && activeTab === 'chat' && (
+                    <div className="flex justify-start">
+                      <div className="bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-700 flex gap-1">
+                        <div className="w-1 h-1 bg-slate-500 rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-slate-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                        <div className="w-1 h-1 bg-slate-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative pt-2 border-t border-slate-800 shrink-0">
+                  <textarea
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleChatSend();
+                      }
+                    }}
+                    placeholder="Спросите что-нибудь..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 pr-10 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none h-20 placeholder:text-slate-600"
+                  />
+                  <button 
+                    onClick={handleChatSend}
+                    disabled={isProcessing || !chatMessage}
+                    className="absolute bottom-4 right-2 p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    <Send className="w-3 h-3 text-white" />
+                  </button>
                 </div>
               </div>
             )}

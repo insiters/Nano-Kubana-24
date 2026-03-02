@@ -109,3 +109,28 @@ export const generateImage = async (
     };
   }
 };
+
+export const chatWithAI = async (
+  message: string,
+  history: { role: "user" | "model"; parts: { text: string }[] }[] = []
+): Promise<{ text: string; error?: string }> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const chat = ai.chats.create({
+      model: "gemini-3-flash-preview",
+      config: {
+        systemInstruction: "You are a helpful assistant integrated into Nano-Kubana, a photo editing app. You can help users with editing tips, creative ideas, or general questions.",
+      },
+      history: history,
+    });
+
+    const response = await chat.sendMessage({ message });
+    return { text: response.text || "" };
+  } catch (error: any) {
+    console.error("AI Chat Error:", error);
+    return {
+      text: "",
+      error: error?.message || "An unexpected error occurred during the chat."
+    };
+  }
+};
